@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+table {
+    font-family: arial, sans-serif;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+td, th {
+    border: 1px solid #dddddd;
+    text-align: left;
+    padding: 8px;
+}
+
+tr:nth-child(even) {
+    background-color: #dddddd;
+}
+</style>
+</head>
+<body>
+
+  <table>
+    <tr>
+      <th>Data science resource</th>
+      <th>Active?</th>
+      <th>Approved by the ethics panel?</th>
+    </tr>
+  {% for dsr in dsr_list %}
+  <tr>
+    <th><a href="jury/{{ dsr.title }}"> {{ dsr.title }}</a></th>
+    <th>{{ dsr.active }}</th>
+    <th>{{ dsr.approved }}</th>
+    {% empty %}
+    <th>Sorry, no resources in this list.</th>
+  </tr>
+  {% endfor %}
+</table>
+

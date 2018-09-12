@@ -1,0 +1,71 @@
+<head>
+<style>
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #333;
+}
+
+li {
+    float: left;
+}
+
+li a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+}
+
+li a:hover {
+    background-color: #111;
+}
+</style>
+</head>
+
+<ul>
+{% if user.is_authenticated %}
+<li>You are logged in as {{ user.username }}</li>
+  <li><a href="{% url 'logout' %}">Log out</a></li>
+{% else %}
+  <li>You are not logged in</li>
+  <li><a href="{% url 'login' %}">Log in</a></li>
+{% endif %}
+</ul>
+
+  
+<h2>{{ dsr.resource_type.lower.title }} approval request</h2>
+
+<p><b>{{ dsr.title }}</b></p>
+
+<p>{{ dsr.description }}</p>
+
+<p style="color:red">{{ err_msg }}</p>
+
+{% if allowed %}
+<form action="process_decision/{{dsr.title}}" id="usrform" method="post">
+  {% csrf_token %}
+  {% if previous_choice %}
+  <input type="radio" name="decision" value="approve" checked="checked"> Approve<br>
+  <input type="radio" name="decision" value="defer"> Defer approval<br><br>
+  {% else %}
+  <input type="radio" name="decision" value="approve"> Approve<br>
+  <input type="radio" name="decision" value="defer" checked="checked"> Defer approval<br><br>
+  {% endif %}
+  <textarea rows="10" cols="100" onfocus="clearContents(this);" name="comment">
+    {{ previous_comment }}
+  </textarea><br>
+  <input type="submit">
+</form>
+{% endif %}
+
+  <script>
+    function clearContents(element) {
+	if (element.value == 'Please enter a comment or reason for deferment.'){
+	    element.value = '';
+	}
+    }
+  </script>
