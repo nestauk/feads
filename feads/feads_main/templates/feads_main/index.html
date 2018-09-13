@@ -1,6 +1,7 @@
+<!DOCTYPE html>
+
 {% load static %}
 
-<!DOCTYPE html>
 <html>
   <!-- Headers -->
   <head>
@@ -19,7 +20,9 @@
       <li><a href="{% url 'login' %}">Log in</a></li>
       {% endif %}
     </ul>
-    
+
+    <h1 class="noselect"> Feads </h1> <br><br>
+    <p> <a href="/"> Click here to return to home </a> </p>
     
     <h1>{{ dsr.resource_type.lower.title }} approval request</h1>
     

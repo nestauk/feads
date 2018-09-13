@@ -3,10 +3,18 @@ from django.conf import settings
 from django.db import models
 from django.core.mail import send_mail
 
+'''Number of jury members to send emails to'''
 N_USERS = 5
 
 
 class DataScienceResource(models.Model):
+    '''Each instance represents a dataset or method
+    used by the Nesta data science team. The creation of a
+    new object will lead to :obj:`N_USERS` members being emailed.
+    The added bonus is that this is (of course) the Django ORM,
+    so all of our data sources and methods are hand-audited in
+    this way.
+    '''
     title = models.CharField(max_length=200, unique=True)
     description = models.TextField(verbose_name=("Description "
                                                  "and justification"))
@@ -32,23 +40,26 @@ class DataScienceResource(models.Model):
         return self.title
 
     def save(self, *args, **kwargs):
+        '''Save the object and email jury members'''
         super().save(*args, **kwargs)
 
-        users = User.objects.exclude(pk=self.user.pk).order_by('?').all()    
+        # Get the users, excluding the submitter
+        users = User.objects.exclude(pk=self.user.pk).order_by('?').all()
         n_users = len(users)
         if n_users < N_USERS:
             n_users = N_USERS
 
+        # Email all users
         sub = ('Ethics panel: new data science {} ({}) await approval.')
         msg = ('Dear {},<br><br>Please click '
                '<a href="http://127.0.0.1:8000/jury/{}">here to review</a>')
         for user in users[:n_users]:
-            send_mail(
-                sub.format(self.resource_type, self.title),
-                msg.format(user.username, self.title),
-                "Nesta Data Science Ethics",
-                [user.email],
-                fail_silently=False)
+            send_mail(sub.format(self.resource_type, self.title),
+                      msg.format(user.username, self.title),
+                      "Nesta Data Science Ethics",
+                      [user.email],
+                      fail_silently=False)
+            # Create a Decisions object for each member of the jury
             d, created = Decisions.objects.get_or_create(user=user,
                                                          resource=self)
             if created:
@@ -56,6 +67,9 @@ class DataScienceResource(models.Model):
 
 
 class Decisions(models.Model):
+    '''Instances represent the individual decision of a
+    jury member (characterised by :obj:`user`) on
+    :obj:`DataScienceResource` :obj:`resource`'''
     comment = models.TextField(default=("Please enter a comment or "
                                         "reason for deferment."),
                                editable=False)
@@ -68,6 +82,9 @@ class Decisions(models.Model):
                                  on_delete=models.CASCADE)
 
     class Meta:
+        '''Specify a pseudo primary/unique key as a combination.
+        The implication here is that each user can only adjudicate
+        on a resource once.'''
         unique_together = (("resource", "user"),)
         verbose_name_plural = "Decisions"
 
@@ -80,11 +97,15 @@ class Decisions(models.Model):
                                              self.user.username)
 
     def save(self, *args, **kwargs):
-        print("Saving a decision!", kwargs)
+        '''Save the :obj:`Decision`, and update the
+        :obj:`DataScienceResource` if required.'''
+        # Update the DataScienceResource if required
         if "first_time" not in kwargs:
+            # Sum up the number of accepts
             decisions = Decisions.objects.filter(resource=self.resource).all()
             n_accepts = sum(d.decision for d in decisions)
-            print(n_accepts, len(decisions))
+            # If the maximum number of accepts has been reached, then
+            # approve this DataScienceResource
             if n_accepts == len(decisions):
                 dsr = DataScienceResource.objects.filter(pk=self.resource.pk)
                 dsr.update(approved=True, active=False)

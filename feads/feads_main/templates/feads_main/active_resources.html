@@ -1,6 +1,7 @@
+<!DOCTYPE html>
+
 {% load static %}
 
-<!DOCTYPE html>
 <html>
   <!-- Headers -->
   <head>
@@ -10,19 +11,21 @@
   <!-- Body -->
   <body>
 
+    <!-- Title fields -->
     <h1 class="noselect"> Feads </h1>
     <h3 class="noselect">
       Nesta data people: register a new resource
       <a href="{% url 'admin:index' %}"> here </a>
     </h3>    
-
     <h2 style="text-align:center"> Nesta's data science resources </h2>
     <br><br>
     
     <!-- Table of results -->
     <table>
+      <!-- First row -->
       <tr>
 	<th>Data science resource</th>
+	<th>Resource type</th>	
 	<th>Description</th>	
 	<th>Active?</th>
 	<th>Approved by the ethics panel?</th>
@@ -34,19 +37,24 @@
       {% for obj in dsr_list %}
       <tr>
 	<td><a href="jury/{{ obj.0.title }}"> {{ obj.0.title }}</a></td>
-	<td style="overflow-y: scroll; font-size: 12px;">{{ obj.0.description }}</td>	
+	<td>{{ obj.0.resource_type.lower.title }}</td>	
+	<td> <div style="height:100px; overflow:scroll; font-size: 12px; line-height: 14px;"> {{ obj.0.description }} </div> </td>
 	<td>{{ obj.0.active }}</td>
 	<td>{{ obj.0.approved }}</td>
 	<td>{{ obj.1 }}</td>
 	<td>{{ obj.2 }}</td>
-	<!--<td> <div style="overflow: hidden; font-size: 12px; height=10px;">{{ obj.3 }}</div></td>-->
-	<td style="width: 200px;"><div style="height:100px; overflow:scroll; font-size: 12px; line-height: 14px;">{{ obj.3 }}</div></td>
-
-      {% empty %}
+	<td style="width: 200px;">
+	  <div style="height:100px; overflow:scroll; font-size: 12px; line-height: 14px;">
+	    {% for comment in obj.3 %}
+	    <p> {{ comment }} </p> <hr>
+	    {% endfor %}
+	  </div>
+	</td>
+	{% empty %}
 	<td>Sorry, no resources in this list.</td>
       </tr>
       {% endfor %}
     </table>
-
+    
   </body>
 </html>

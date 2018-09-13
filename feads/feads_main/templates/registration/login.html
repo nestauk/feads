@@ -1,6 +1,23 @@
-<h2>Login</h2>
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Login</button>
-</form>
+<!DOCTYPE html>
+
+{% load static %}
+
+<html>
+
+  <!-- Headers -->
+  <head>
+    <link rel="stylesheet" type="text/css" href="{% static 'feads_main/style.css' %}">
+  </head>
+
+  <!-- Log in info -->
+  <body style="margin: auto; width: 75%;">
+    <br><br>
+    <h1> Feads login</h1>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Login</button>
+    </form>
+  </body>
+  
+</html>
