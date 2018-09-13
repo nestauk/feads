@@ -1,40 +1,52 @@
+{% load static %}
+
 <!DOCTYPE html>
 <html>
-<head>
-<style>
-table {
-    font-family: arial, sans-serif;
-    border-collapse: collapse;
-    width: 100%;
-}
+  <!-- Headers -->
+  <head>
+    <link rel="stylesheet" type="text/css" href="{% static 'feads_main/style.css' %}">
+  </head>
 
-td, th {
-    border: 1px solid #dddddd;
-    text-align: left;
-    padding: 8px;
-}
+  <!-- Body -->
+  <body>
 
-tr:nth-child(even) {
-    background-color: #dddddd;
-}
-</style>
-</head>
-<body>
+    <h1 class="noselect"> Feads </h1>
+    <h3 class="noselect">
+      Nesta data people: register a new resource
+      <a href="{% url 'admin:index' %}"> here </a>
+    </h3>    
 
-  <table>
-    <tr>
-      <th>Data science resource</th>
-      <th>Active?</th>
-      <th>Approved by the ethics panel?</th>
-    </tr>
-  {% for dsr in dsr_list %}
-  <tr>
-    <th><a href="jury/{{ dsr.title }}"> {{ dsr.title }}</a></th>
-    <th>{{ dsr.active }}</th>
-    <th>{{ dsr.approved }}</th>
-    {% empty %}
-    <th>Sorry, no resources in this list.</th>
-  </tr>
-  {% endfor %}
-</table>
+    <h2 style="text-align:center"> Nesta's data science resources </h2>
+    <br><br>
+    
+    <!-- Table of results -->
+    <table>
+      <tr>
+	<th>Data science resource</th>
+	<th>Description</th>	
+	<th>Active?</th>
+	<th>Approved by the ethics panel?</th>
+	<th>% who have approved</th>
+	<th>% who have deferred approval</th>
+	<th>Comments</th>
+      </tr>
+      <!-- Iterate over results -->
+      {% for obj in dsr_list %}
+      <tr>
+	<td><a href="jury/{{ obj.0.title }}"> {{ obj.0.title }}</a></td>
+	<td style="overflow-y: scroll; font-size: 12px;">{{ obj.0.description }}</td>	
+	<td>{{ obj.0.active }}</td>
+	<td>{{ obj.0.approved }}</td>
+	<td>{{ obj.1 }}</td>
+	<td>{{ obj.2 }}</td>
+	<!--<td> <div style="overflow: hidden; font-size: 12px; height=10px;">{{ obj.3 }}</div></td>-->
+	<td style="width: 200px;"><div style="height:100px; overflow:scroll; font-size: 12px; line-height: 14px;">{{ obj.3 }}</div></td>
 
+      {% empty %}
+	<td>Sorry, no resources in this list.</td>
+      </tr>
+      {% endfor %}
+    </table>
+
+  </body>
+</html>

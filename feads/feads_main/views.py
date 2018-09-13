@@ -3,6 +3,7 @@ from django.shortcuts import redirect
 from .models import DataScienceResource
 from .models import Decisions
 from django.contrib.auth.decorators import login_required
+from collections import Counter
 
 
 @login_required
@@ -47,5 +48,21 @@ def process_decision(request, title):
 
 
 def active_resources(request):
-    context = {"dsr_list" : DataScienceResource.objects.all()}
+    decision_field = Decisions._meta.get_field('comment')
+    dsr_list = []
+    for dsr in DataScienceResource.objects.all():
+        approvals = []
+        comments = []
+        n = 0
+        for decision in Decisions.objects.filter(resource=dsr):
+            print(decision)
+            n += 1
+            if decision.comment != decision_field.default:
+                approvals.append(decision.decision)
+                comments.append(decision.comment)
+        counts = Counter(approvals)
+        dsr_list.append((dsr, "{:3.0f}".format(100*counts[True]/n),
+                         "{:3.0f}".format(100*counts[False]/n),
+                         "\n\n".join(comments)))
+    context = {"dsr_list": dsr_list}
     return render(request, 'feads_main/active_resources.html', context=context)
