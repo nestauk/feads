@@ -15,7 +15,7 @@ def index(request, title, err_msg=""):
     decisions = Decisions.objects.filter(resource=dsr,
                                          user=request.user).first()
     # Develop the context dependent on previous decision feedback
-    context = {"dsr": dsr, "allowed": True}
+    context = {"dsr": dsr, "allowed": True, "err_msg": err_msg}
     # If not decision has been found, it implies that the user is
     # a valid django user, but has not been assigned to this task
     if decisions is None:

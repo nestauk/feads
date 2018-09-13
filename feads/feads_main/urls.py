@@ -7,3 +7,4 @@ urlpatterns = [
     path('process_decision/<str:title>', views.process_decision,
          name='process_decision'),
 ]
+

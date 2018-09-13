@@ -46,7 +46,7 @@ class DataScienceResource(models.Model):
         # Get the users, excluding the submitter
         users = User.objects.exclude(pk=self.user.pk).order_by('?').all()
         n_users = len(users)
-        if n_users < N_USERS:
+        if n_users > N_USERS:
             n_users = N_USERS
 
         # Email all users
