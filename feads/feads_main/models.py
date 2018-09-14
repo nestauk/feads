@@ -48,7 +48,7 @@ class DataScienceResource(models.Model):
         n_users = len(users)
         if n_users > N_USERS:
             n_users = N_USERS
-
+            
         # Email all users
         sub = ('Ethics panel: new data science {} ({}) await approval.')
         msg = ('Dear {},<br><br>Please click '
@@ -60,10 +60,8 @@ class DataScienceResource(models.Model):
                       [user.email],
                       fail_silently=False)
             # Create a Decisions object for each member of the jury
-            d, created = Decisions.objects.get_or_create(user=user,
-                                                         resource=self)
-            if created:
-                d.save(first_time=True)
+            Decisions.objects.get_or_create(user=user,
+                                            resource=self)
 
 
 class Decisions(models.Model):
@@ -100,15 +98,14 @@ class Decisions(models.Model):
         '''Save the :obj:`Decision`, and update the
         :obj:`DataScienceResource` if required.'''
         # Update the DataScienceResource if required
-        if "first_time" not in kwargs:
-            # Sum up the number of accepts
+        if self.pk is not None:
+            # Sum up the number of accepts (including our new decision)
             decisions = Decisions.objects.filter(resource=self.resource).all()
-            n_accepts = sum(d.decision for d in decisions)
+            n_accepts = sum(d.decision for d in decisions
+                            if d != self) + int(self.decision)
             # If the maximum number of accepts has been reached, then
             # approve this DataScienceResource
             if n_accepts == len(decisions):
                 dsr = DataScienceResource.objects.filter(pk=self.resource.pk)
                 dsr.update(approved=True, active=False)
-        else:
-            kwargs.pop("first_time")
         super().save(*args, **kwargs)
