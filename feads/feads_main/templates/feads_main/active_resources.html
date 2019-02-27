@@ -2,59 +2,546 @@
 
 {% load static %}
 
-<html>
+<html style="width:1100px;">
   <!-- Headers -->
   <head>
     <link rel="stylesheet" type="text/css" href="{% static 'feads_main/style.css' %}">
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/\
+					d3.min.js"></script>
+
+    <style>
+      text {
+        font-size: 14pt;
+	font-family: "Century Gothic", CenturyGothic, Geneva, AppleGothic, san-serif;
+      }
+
+      line {
+	stroke: transparent;
+	stroke-width: 3;
+      }
+
+      .heading {
+	font-size: 20pt;
+	fill: steelblue;
+      }
+
+      label {
+	color: steelblue;
+	font-size: 20pt;
+	padding: 0.2em;
+      }
+
+      label.checked {
+	background-color:#efefef;
+      }
+    </style>
+    
   </head>
 
   <!-- Body -->
-  <body>
+  <body style="width:1100px;">
 
     <!-- Title fields -->
-    <h1 class="noselect"> Feads </h1>
-    <h3 class="noselect">
-      Nesta data people: register a new resource
-      <a href="{% url 'admin:index' %}"> here </a>
-    </h3>    
-    <h2 style="text-align:center"> Nesta's data science resources </h2>
+    <div style="width:1100px;">
+      <div style="text-align:center; width:500px; margin: 0 auto;">
+	<h1 class="noselect"> Feads </h1>
+	<h2 style="font-size:20pt; line-height: 25pt;"> An open auditing system for Nesta data science resources </h2>
+	<h3 class="noselect">
+	  Nesta data people: register a new resource
+	  <a href="{% url 'admin:index' %}"> here </a>	
+	</h3>    
+      </div>
+    </div>
+
     <br><br>
+
+    <div id="chart" style="width:1100px;"></div>
+
+    <script type="text/javascript">
+
+      // Style parameters
+      var bold = '700';
+      var normal = '400';
+      var hover_colour = 'blue';
+      var click_colour = 'red';
+      var transparent = 'transparent';
+      var default_colour = 'black';
+
+      // Dimension parameters
+      var x_min = 150;
+      var x_max = 300;
+      var x_tol = 20;
+      var y_head = 50;
+      var y_min = 120;
+      var y_tol = 4;
+      var width = 1100;
+      var height = 700;
+
+      // Globals
+      var data_store;
+      var power_mode = false;
+      var methods = [];
+      var data_sources = [];
+      var links = {'methods': {}, 'data_source': {}};
+      var svg = d3.select("#chart")
+	  .append("svg")
+	  .attr("width", width)
+	  .attr("height", height);
+
+      make_everything();
+      
+      // On opening the data file
+      //d3.json("links.json", function(error, data){
+      function make_everything(){
+	  {% autoescape off %}
+	  var data = JSON.parse('{{ implementations }}');
+	  {% endautoescape %}
+	  
+	  // Iterate through the file
+	  for (var i in data){
+	      data[i].i_method = get_index(data[i].method, methods);
+	      data[i].i_source = get_index(data[i].data_source, data_sources);
+	  }
+	  
+	  var paths = [];
+	  for (var i in data){
+	      var d = data[i];
+	      var nd = data_sources.length;
+	      var nm = methods.length;
+	      var x0 = x_min + x_tol;
+	      var x1 = x_max - x_tol;
+	      var y0 = y_min + d.i_source*height/nd;
+	      var y1 = y_min+d.i_method*(height)/nm;
+	      //var path = [[x0, y0], [(x0+x1)/2, (y0+y1)/2], [x1, y1]];
+	      var lineGenerator = d3.svg.line().tension(0).interpolate("basis");
+	      var path = [[x0, y0],
+			  [(x0+x1)/2, y0 + (y1-y0)/8],			
+			  [(x0+x1)/2, y0 + 7*(y1-y0)/8],
+			  [x1, y1]];
+	      data[i].path = lineGenerator(path);
+	  }
+	  data_store = data;
+	  
+	  // Draw a line between left and right
+	  svg.selectAll("path")
+	      .data(data)
+	      .enter()
+	      .append("path")
+	      .style("fill", "none")
+	      .attr('d', function(d, i){
+		  return d.path;
+	      })
+	      .attr('i_method', function(d, i){
+		  return d.i_method;
+	      })
+	      .attr('i_source', function(d, i){
+		  return d.i_source;
+	      })
+	      .style('stroke-width', 3)
+	      .property("this_clicked", false)
+	      .property("source_clicked", false)
+	      .property("method_clicked", false);
+	  
+	  
+	  svg.selectAll("path")
+	      .on("mouseover", function(d){
+		  toggle_line(this);
+	      })
+	      .on("mouseout",function(d){
+		  toggle_line(this);
+	      })
+	      .on("click",function(d){
+		  toggle_line(this, force=true);
+	      })
+
+	  // Set up the text attrs
+	  set_up_nodes(data_sources, "source", "end", x_min);
+	  set_up_nodes(methods, "method", "start", x_max);
+	  
+	  // Set up the description boxes
+	  var labels = ["Source", "Method", "Implementation"];
+	  for(var i=0; i<labels.length; i++){
+	      d3.select("svg")
+		  .append('rect')
+		  .attr("x", x_max + 250)
+		  .attr("y", i*height/3)
+		  .attr("width", width/2)
+		  .attr("height", height/3)
+		  .style("stroke", "black")
+		  .style("fill", "transparent");
+
+	      d3.select("svg")
+		  .append('text')
+		  .attr("x", x_max + 250 + 10)
+		  .attr("y", i*height/3 + 30)
+		  .attr("class","heading")
+		  .text(labels[i]+" description:")
+		  .style("fill", "black");
+	      
+	      d3.select("svg")
+		  .append('text')
+		  .attr("x", x_max + 250 + 10)
+		  .attr("y", i*height/3 + 80)
+		  .style("fill", "black")
+		  .attr("textbox", labels[i]);
+
+	  }
+      };
+
+      function get_index(the_item, the_array){
+	  var i = the_array.indexOf(the_item);
+	  if (i == -1){
+	      the_array.push(the_item);
+	      return get_index(the_item, the_array);
+	  }
+	  return i;
+      }
+
+      function force_lines_off(){
+	  d3.selectAll("path")
+	      .attr('stroke', function(){
+		  d3.select(this).style('stroke', transparent);
+		  return transparent;
+	      })
+	      .style('stroke-width', 3)
+	      .property('this_clicked', false);
+      }
+
+      function toggle_line(line, force=false){
+	  if(power_mode) return;
+	  // if(!force && power_mode){
+	  //     enforce_power_mode(line);
+	  //     return;
+	  // }
+	  var _this = d3.select(line);
+	  var source_clicked = _this.property("source_clicked");
+	  var method_clicked = _this.property("method_clicked");
+	  if (!(source_clicked || method_clicked)){
+	      return;
+	  }
+	  //if(source_clicked) alert("source clicked");
+	  //if(method_clicked) alert("method clicked");
+	  
+	  var this_clicked = _this.property("this_clicked");
+	  // If clicking
+	  if(force){
+	      // Unclick everything if this is a new click
+	      var i_method = _this.attr("i_method");
+	      var i_source = _this.attr("i_source");
+	      if(!this_clicked){
+		  force_lines_off();
+		  toggle_line(line);
+		  enforce_power_mode(line);
+		  power_mode = true;
+	      }
+	      // Reverse the clicked property
+	      _this.property('this_clicked', !this_clicked);
+	      return;
+	  }
+	  // Don't toggle if clicked
+	  else if(this_clicked){
+	      return;
+	  }
+	  // Otherwise, toggle
+	  var new_width = _this.style('stroke-width') === '3' ? 7:3;
+	  _this.style('stroke-width', new_width);
+	  _this.style('stroke', 'red');	
+      }
+      
+      function set_up_nodes(data, label, text_anchor, x_pos){
+	  // Set up the column header
+	  svg
+	      .append("text")
+	      .attr("x", x_pos)
+	      .attr("y", y_head)
+	      .attr("text-anchor", text_anchor)
+	      .attr("class","heading")
+	      .text(title_case(label));
+	  
+	  obj = svg.selectAll(label)
+	      .data(data)
+	      .enter()
+	      .append("text")
+	      .attr("x", x_pos)
+	      .attr("y", function(d, i){
+		  return y_min + y_tol + i*(height)/data.length;
+	      })
+	      .text(function(d){
+		  return title_case(d);
+	      })
+	      .attr("text-anchor", text_anchor)
+	      .attr("class",function(d){
+		  return d.replace(" ","_");
+	      })
+	      .attr(label+"_idx", function(d, i) {return i;})
+	      .property("this_clicked", false)
+	      .call(wrap, 150);
+	  
+	  obj
+	      .on("mouseover", function(d, i){
+		  toggle_word(this, label, i, color=null,
+			      force=false, mouseover=true);
+	      })
+	      .on("mouseout", function(d, i){
+		  toggle_word(this, label, i);
+	      })
+	      .on("click", function(d, i){
+		  var this_clicked = d3.select(this).property("this_clicked");
+		  if(power_mode){
+		      if(this_clicked) return;
+		      unenforce_power_mode();
+		      toggle_word(this, label, i, color=null,
+				  force=false, mouseover=true);
+		  }		
+		  toggle_word(this, label, i, color=click_colour, force=true);
+	      });
+      }
+      
+      function toggle_word(text, label, i, color=null, force=false, mouseover=false){
+	  var _this = d3.select(text);
+	  var this_clicked = _this.property("this_clicked");
+	  if(power_mode && !this_clicked){
+	      return toggle_word_attrs(_this, color);
+	  }
+	  
+	  // If clicking
+	  if(force){
+	      d3.selectAll("path")
+		  .property('source_clicked', false)
+		  .property('method_clicked', false);
+	      // Unclick everything if this is a new click
+	      if(!this_clicked){
+		  //_this
+		  d3.selectAll("text")
+		      .style("font-weight", normal)
+		      .attr("fill", default_colour)
+		      .property('this_clicked', false);
+		  //d3.selectAll('[i_'+label+'="'+i+'"]')
+		  d3.selectAll("path")
+		      .attr('stroke', function(){
+			  d3.select(this).style('stroke', transparent);
+			  return transparent;
+		      });
+		  // Then toggle this on
+		  d3.selectAll('[i_'+label+'="'+i+'"]')
+		      .property(label+'_clicked', true);
+		  toggle_word(text, label, i, color=click_colour);
+	      }
+	      //force_lines_off();
+	      // Reverse the clicked property
+	      _this.property('this_clicked', !this_clicked);
+	      return;
+	  }
+	  // Don't toggle if clicked
+	  else if(this_clicked){
+	      return;
+	  }
+	  
+	  // Toggle the word
+	  toggle_word_attrs(_this, color);
+	  
+	  // Toggle the line
+	  d3.selectAll('[i_'+label+'="'+i+'"]')
+	      .attr('stroke', function(){
+		  c = toggle_line_color(this, color, mouseover=mouseover);
+		  d3.select(this).style("stroke", c);
+		  return c;
+	      });
+      }
+      
+      function toggle_line_color(line, color, mouseover=false){
+	  _this = d3.select(line);
+	  var source_clicked = _this.property("source_clicked");
+	  var method_clicked = _this.property("method_clicked");
+	  if ((source_clicked || method_clicked)){
+	      if(mouseover) return hover_colour;
+	      else return click_colour;
+	  }
+
+	  var old_col = _this.attr('stroke');
+	  if (old_col == null) old_col = transparent;
+	  var is_black = old_col === transparent;
+	  var new_col = is_black ? hover_colour:transparent;
+	  if (old_col == click_colour && new_col == hover_colour) new_col = click_colour;
+	  else if (color != null) new_col = color;
+	  return new_col;
+      }
+
+      function title_case(str) {
+	  return str.toLowerCase().split(' ').map(function(word) {
+	      return word.replace(word[0], word[0].toUpperCase());
+	  }).join(' ');
+      }
+      
+      function enforce_power_mode(line){
+	  var _this = d3.select(line);
+	  var i_method = _this.attr("i_method");
+	  var i_source = _this.attr("i_source");
+	  var method = d3.select('text[method_idx="'+i_method+'"]')
+	      .property("this_clicked", true);
+	  var source = d3.select('text[source_idx="'+i_source+'"]')
+	      .property("this_clicked", true);	
+	  toggle_word_attrs(method, click_colour, bold);
+	  toggle_word_attrs(source, click_colour, bold);
+	  
+	  for (var i in data_store){
+	      var d = data_store[i];
+	      if(d.i_method != i_method) continue;
+	      if(d.i_source != i_source) continue;
+	      d3.select("[textbox=Method]")
+		  .text(d.method_layd)
+		  .attr("x", "52%")
+		  .style("font-size", "15px")
+		  .call(wrap, 500)
+
+		  .append("tspan")
+		  .attr("x", "52%")	      
+		  .attr("y", 2*height/3 - 35)	      
+		  .text("Method type: "+d.method_type)
+		  .style("font-size", "15px")	     
+	      
+		  .append("tspan")
+		  .text("Read more: "+d.method_wiki)
+		  .attr("x", "52%")	      
+		  .attr("y", 2*height/3 - 10)
+		  .style("font-size", "15px");	      
+
+	      d3.select("[textbox=Source]")
+		  .text(d.data_source_just)
+		  .attr("x", "52%")
+		  .style("font-size", "15px")
+		  .call(wrap, 500)
+
+		  .append("tspan")
+		  .attr("x", "52%")	      
+		  .attr("y", height/3 - 80)	      
+		  .text("Sensitive data: "+d.data_source_sens)
+		  .style("font-size", "15px")	     
+	      
+		  .append("tspan")
+		  .attr("x", "52%")	      
+		  .attr("y", height/3 - 50)	      
+		  .text("Where stored: "+d.data_source_where)
+		  .style("font-size", "15px")	     
+	      
+		  .append("tspan")
+		  .text("Read more: "+d.data_source_link)
+		  .attr("x", "52%")	      
+		  .attr("y", height/3 - 20)
+		  .style("font-size", "15px");	      
+	      
+	      d3.select("[textbox=Implementation]")
+		  .text(d.implementation)
+		  .style("font-size", "15px") 	      
+		  .call(wrap, 500)	      
+
+		  .append("tspan")
+		  .text("Approved: "+d.approved)
+		  .attr("x", "52%")	      
+		  .attr("y", height - 20)
+		  .style("stroke", "red")
+		  .style("font-size", "15px");	      
+	      
+	  }
+      }
+
+      function unenforce_power_mode(){
+	  power_mode = false;
+	  force_lines_off();
+	  d3.selectAll("text")
+	      .attr('font-weight', normal)
+	      .attr('fill', default_colour)
+	      .property('this_clicked', false);
+	  d3.select("[textbox=Method]").text('');
+	  d3.select("[textbox=Source]").text('');
+	  d3.select("[textbox=Implementation]").text('');	
+      }
+
+      function toggle_word_attrs(_this, color, weight){
+	  // Calculate the new color and weight
+	  var old_col = _this.attr('fill');
+	  if (old_col == null) old_col = default_colour;
+	  var is_black = old_col === default_colour;
+	  var new_col = is_black ? hover_colour:default_colour;
+	  if (old_col == click_colour && new_col == hover_colour) new_col = click_colour;
+	  else if (color != null) new_col = color;
+	  
+	  var new_wt = _this.style('font-weight') === bold ? normal:bold;
+	  if (weight != null) new_wt = weight;
+	  _this.style("font-weight", new_wt)
+	      .attr("fill", new_col);
+      }
+
+      function wrap(text, width) {
+	  text.each(function () {
+	      var text = d3.select(this),
+		  words = text.text().split(/\s+/).reverse(),
+		  word,
+		  line = [],
+		  lineNumber = 0,
+		  lineHeight = 1.2, // ems
+		  x = text.attr("x"),
+		  y = text.attr("y"),
+		  dy = 0, //parseFloat(text.attr("dy")),
+		  tspan = text.text(null)
+		  .append("tspan")
+		  .attr("x", x)
+		  .attr("y", y)
+		  .attr("dy", dy + "em");
+	      while (word = words.pop()) {
+		  line.push(word);
+		  tspan.text(line.join(" "));
+		  if (tspan.node().getComputedTextLength() > width) {
+		      line.pop();
+		      tspan.text(line.join(" "));
+		      line = [word];
+		      tspan = text.append("tspan")
+			  .attr("x", x)
+			  .attr("y", y)
+			  .attr("dy", ++lineNumber * lineHeight + dy + "em")
+			  .text(word);
+		  }
+	      }
+	  });
+      }
+    </script>
+
     
-    <!-- Table of results -->
-    <table>
-      <!-- First row -->
-      <tr>
-	<th>Data science resource</th>
-	<th>Resource type</th>	
-	<th>Description</th>	
-	<th>Active?</th>
-	<th>Approved by the ethics panel?</th>
-	<th>% who have approved</th>
-	<th>% who have deferred approval</th>
-	<th>Comments</th>
-      </tr>
-      <!-- Iterate over results -->
-      {% for obj in dsr_list %}
-      <tr>
-	<td><a href="jury/{{ obj.0.title }}"> {{ obj.0.title }}</a></td>
-	<td>{{ obj.0.resource_type.lower.title }}</td>	
-	<td> <div style="height:100px; overflow:scroll; font-size: 12px; line-height: 14px;"> {{ obj.0.description }} </div> </td>
-	<td>{{ obj.0.active }}</td>
-	<td>{{ obj.0.approved }}</td>
-	<td>{{ obj.1 }}</td>
-	<td>{{ obj.2 }}</td>
-	<td style="width: 200px;">
-	  <div style="height:100px; overflow:scroll; font-size: 12px; line-height: 14px;">
-	    {% for comment in obj.3 %}
-	    <p> {{ comment }} </p> <hr>
-	    {% endfor %}
-	  </div>
-	</td>
-	{% empty %}
-	<td>Sorry, no resources in this list.</td>
-      </tr>
-      {% endfor %}
-    </table>
+    <!-- <\!-- Table of results -\-> -->
+    <!-- <table> -->
+    <!--   <\!-- First row -\-> -->
+    <!--   <tr> -->
+    <!-- 	<th>Data science resource</th> -->
+    <!-- 	<th>Resource type</th>	 -->
+    <!-- 	<th>Description</th>	 -->
+    <!-- 	<th>Active?</th> -->
+    <!-- 	<th>Approved by the ethics panel?</th> -->
+    <!-- 	<th>% who have approved</th> -->
+    <!-- 	<th>% who have deferred approval</th> -->
+    <!-- 	<th>Comments</th> -->
+    <!--   </tr> -->
+    <!--   <\!-- Iterate over results -\-> -->
+    <!--   {% for obj in dsr_list %} -->
+    <!--   <tr> -->
+    <!-- 	<td><a href="jury/{{ obj.0.title }}"> {{ obj.0.title }}</a></td> -->
+    <!-- 	<td>{{ obj.0.resource_type.lower.title }}</td>	 -->
+    <!-- 	<td> <div style="height:100px; overflow:scroll; font-size: 12px; line-height: 14px;"> {{ obj.0.description }} </div> </td> -->
+    <!-- 	<td>{{ obj.0.active }}</td> -->
+    <!-- 	<td>{{ obj.0.approved }}</td> -->
+    <!-- 	<td>{{ obj.1 }}</td> -->
+    <!-- 	<td>{{ obj.2 }}</td> -->
+    <!-- 	<td style="width: 200px;"> -->
+    <!-- 	  <div style="height:100px; overflow:scroll; font-size: 12px; line-height: 14px;"> -->
+    <!-- 	    {% for comment in obj.3 %} -->
+    <!-- 	    <p> {{ comment }} </p> <hr> -->
+    <!-- 	    {% endfor %} -->
+    <!-- 	  </div> -->
+    <!-- 	</td> -->
+    <!-- 	{% empty %} -->
+    <!-- 	<td>Sorry, no resources in this list.</td> -->
+    <!--   </tr> -->
+    <!--   {% endfor %} -->
+    <!-- </table> -->
     
   </body>
 </html>

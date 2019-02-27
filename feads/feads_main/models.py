@@ -3,8 +3,34 @@ from django.conf import settings
 from django.db import models
 from django.core.mail import send_mail
 
+
 '''Number of jury members to send emails to'''
 N_USERS = 5
+
+
+class SeparatedValuesField(models.TextField):
+    #__metaclass__ = models.SubfieldBase
+
+    def __init__(self, *args, **kwargs):
+        self.token = kwargs.pop('token', ',')
+        super(SeparatedValuesField, self).__init__(*args, **kwargs)
+
+    def to_python(self, value):
+        if not value:
+            return
+        if isinstance(value, list):
+            return value
+        return value.split(self.token)
+
+    def get_db_prep_value(self, value, connection, prepared=False):
+        if not value:
+            return
+        assert(isinstance(value, list) or isinstance(value, tuple))
+        return self.token.join([str(s) for s in value])
+
+    def value_to_string(self, obj):
+        value = self._get_val_from_obj(obj)
+        return self.get_db_prep_value(value)
 
 
 class DataScienceResource(models.Model):
@@ -16,28 +42,62 @@ class DataScienceResource(models.Model):
     this way.
     '''
     title = models.CharField(max_length=200, unique=True)
-    description = models.TextField(verbose_name=("Description "
-                                                 "and justification"))
-    resource_type = models.CharField(
-        max_length=6,
-        choices=(('DATA', 'Data'), ('METHOD', 'Method')),
-        default='DATA',
-    )
-    github_repo = models.CharField(max_length=200, blank=True)
-    data_source = models.CharField(max_length=200)
-    data_location = models.CharField(max_length=400)
+    justification = models.CharField(max_length=1000, default="")
     creation_date = models.DateTimeField('Date created', auto_now_add=True,
                                          blank=True, editable=False)
-    active = models.BooleanField(default=True)
-    approved = models.BooleanField(default=False, editable=False)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL,
-                             null=True, on_delete=models.CASCADE)
 
     def __unicode__(self):
         return self.title
 
     def __str__(self):
         return self.title
+
+
+class DataScienceMethod(DataScienceResource):
+    wikipedia_page = models.URLField()
+    method_type = models.CharField(
+        max_length=7,
+        choices=(('NLP', 'Natural Language Processing'),
+                 ('CLUSTER', 'Clustering'),
+                 ('REG', 'Value prediction'),
+                 ('ENRICH', 'Data enrichment'))
+    )
+    lay_description = models.TextField()
+
+
+class DataSource(DataScienceResource):
+    #field_list = SeparatedValuesField()
+    sensitive_fields = SeparatedValuesField(blank=True,
+                                            null=True,
+                                            default="")
+    link_to_description = models.URLField()
+    where_stored = models.CharField(max_length=3,
+                                    choices=(('LOC', 'Local file storage'),
+                                             ('CLF', 'Cloud file storage'),
+                                             ('CLD', 'Cloud database')))
+
+
+class Implementation(models.Model):
+    id = models.AutoField(primary_key=True)
+    data_source = models.ForeignKey(DataSource,
+                                    on_delete=models.CASCADE)
+    data_science_method = models.ForeignKey(DataScienceMethod,
+                                            on_delete=models.CASCADE)
+    why_we_did_this = models.CharField(max_length=1000)
+    what_we_are_not_doing = models.CharField(max_length=500,
+                                             null=True,
+                                             blank=True)
+    projects = models.CharField(
+        max_length=3,
+        choices=(('SCO', 'Scottish innovation mapping'),
+                 ('RWJ', 'Robert Woods Johnson Foundation'),
+                 ('EUR', 'EURITO'))
+        )
+
+    active = models.BooleanField(default=True)
+    approved = models.BooleanField(default=False, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL,
+                             null=True, on_delete=models.CASCADE)
 
     def save(self, *args, **kwargs):
         '''Save the object and email jury members'''
@@ -48,20 +108,25 @@ class DataScienceResource(models.Model):
         n_users = len(users)
         if n_users > N_USERS:
             n_users = N_USERS
-            
+
         # Email all users
-        sub = ('Ethics panel: new data science {} ({}) await approval.')
-        msg = ('Dear {},<br><br>Please click '
-               '<a href="http://127.0.0.1:8000/jury/{}">here to review</a>')
+        sub = ('Ethics panel: new data science implementation '
+               f'({self.data_science_method} on {self.data_source}) '
+               'awaits approval.')
+        frm = "Nesta Data Science Ethics"
         for user in users[:n_users]:
-            send_mail(sub.format(self.resource_type, self.title),
-                      msg.format(user.username, self.title),
-                      "Nesta Data Science Ethics",
-                      [user.email],
-                      fail_silently=False)
+            msg = (f'Dear {user.username},<br><br>Please click '
+                   f'<a href="http://127.0.0.1:8000/jury/{self.id}">'
+                   'here to review</a>')
+            send_mail(sub, msg, frm, [user.email], fail_silently=False)
             # Create a Decisions object for each member of the jury
-            Decisions.objects.get_or_create(user=user,
-                                            resource=self)
+            Decisions.objects.get_or_create(user=user, resource=self)
+
+    def __unicode__(self):
+        return f"{self.data_science_method} on {self.data_source}"
+
+    def __str__(self):
+        return f"{self.data_science_method} on {self.data_source}"
 
 
 class Decisions(models.Model):
@@ -76,22 +141,22 @@ class Decisions(models.Model):
                                          blank=True, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL,
                              on_delete=models.CASCADE)
-    resource = models.ForeignKey(DataScienceResource,
-                                 on_delete=models.CASCADE)
+    implementation = models.ForeignKey(Implementation,
+                                       on_delete=models.CASCADE)
 
     class Meta:
         '''Specify a pseudo primary/unique key as a combination.
         The implication here is that each user can only adjudicate
         on a resource once.'''
-        unique_together = (("resource", "user"),)
+        unique_together = (("implementation", "user"),)
         verbose_name_plural = "Decisions"
 
     def __unicode__(self):
-        return "Decision on {} by {}".format(self.resource.title,
+        return "Decision on {} by {}".format(self.implementation.id,
                                              self.user.username)
 
     def __str__(self):
-        return "Decision on {} by {}".format(self.resource.title,
+        return "Decision on {} by {}".format(self.implementation.id,
                                              self.user.username)
 
     def save(self, *args, **kwargs):
@@ -100,12 +165,12 @@ class Decisions(models.Model):
         # Update the DataScienceResource if required
         if self.pk is not None:
             # Sum up the number of accepts (including our new decision)
-            decisions = Decisions.objects.filter(resource=self.resource).all()
+            decisions = Decisions.objects.filter(implementation=self.implementation).all()
             n_accepts = sum(d.decision for d in decisions
                             if d != self) + int(self.decision)
             # If the maximum number of accepts has been reached, then
             # approve this DataScienceResource
             if n_accepts == len(decisions):
-                dsr = DataScienceResource.objects.filter(pk=self.resource.pk)
+                dsr = Implementation.objects.filter(pk=self.implemenation.pk)
                 dsr.update(approved=True, active=False)
         super().save(*args, **kwargs)
