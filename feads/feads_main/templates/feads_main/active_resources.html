@@ -11,7 +11,7 @@
 
     <style>
       text {
-        font-size: 14pt;
+        font-size: 12pt;
 	font-family: "Century Gothic", CenturyGothic, Geneva, AppleGothic, san-serif;
       }
 
@@ -115,8 +115,8 @@
 	      var nm = methods.length;
 	      var x0 = x_min + x_tol;
 	      var x1 = x_max - x_tol;
-	      var y0 = y_min + d.i_source*height/nd;
-	      var y1 = y_min+d.i_method*(height)/nm;
+	      var y0 = y_min + d.i_source*(height - 10*y_tol)/nd;
+	      var y1 = y_min+d.i_method*(height - 10*y_tol)/nm;
 	      //var path = [[x0, y0], [(x0+x1)/2, (y0+y1)/2], [x1, y1]];
 	      var lineGenerator = d3.svg.line().tension(0).interpolate("basis");
 	      var path = [[x0, y0],
@@ -270,7 +270,7 @@
 	      .append("text")
 	      .attr("x", x_pos)
 	      .attr("y", function(d, i){
-		  return y_min + y_tol + i*(height)/data.length;
+		  return y_min + y_tol + i*(height - 10*y_tol)/data.length;
 	      })
 	      .text(function(d){
 		  return title_case(d);
