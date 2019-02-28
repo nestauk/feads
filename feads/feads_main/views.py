@@ -84,7 +84,6 @@ def active_resources(request):
                    method_wiki=f"{imp.data_science_method.wikipedia_page}",
                    method_layd=f"{imp.data_science_method.lay_description}",
                    approved=f"{imp.approved}")
-        print(row["method_layd"])
         imp_list.append(row)
 
     #     n = 0  # Total number of decisions (including pending)
