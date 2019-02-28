@@ -17,12 +17,12 @@
 
       line {
 	stroke: transparent;
-	stroke-width: 3;
+	stroke-width: 3px;
       }
 
       path {
 	stroke: transparent;
-	stroke-width: 3;
+	stroke-width: 3px;
       }
 
       .heading {
@@ -142,7 +142,7 @@
 	      .attr('i_source', function(d, i){
 		  return d.i_source;
 	      })
-	      .style('stroke-width', 3)
+	      .style('stroke-width', "3px")
 	      .property("this_clicked", false)
 	      .property("source_clicked", false)
 	      .property("method_clicked", false);
@@ -248,8 +248,9 @@
 	      return;
 	  }
 	  // Otherwise, toggle
-	  var new_width = _this.style('stroke-width') === '3' ? 7:3;
+	  var new_width = _this.style('stroke-width') === '3px' ? '7px':'3px';
 	  _this.style('stroke-width', new_width);
+	  _this.attr('stroke-width', new_width);	  
 	  _this.style('stroke', 'red');	
       }
       
